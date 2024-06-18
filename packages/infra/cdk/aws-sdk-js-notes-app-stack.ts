@@ -76,11 +76,7 @@ export class AwsSdkJsNotesAppStack extends Stack {
     const filesBucket = new s3.Bucket(this, "files-bucket");
     filesBucket.addCorsRule({
       allowedOrigins: apigw.Cors.ALL_ORIGINS, // NOT recommended for production code
-      allowedMethods: [
-        s3.HttpMethods.PUT,
-        s3.HttpMethods.GET,
-        s3.HttpMethods.DELETE,
-      ],
+      allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.DELETE],
       allowedHeaders: ["*"],
     });
 
@@ -104,9 +100,21 @@ export class AwsSdkJsNotesAppStack extends Stack {
     });
 
     // NOT recommended for production code - only give read permissions for unauthenticated resources
-    filesBucket.grantRead(unauthenticated);
-    filesBucket.grantPut(unauthenticated);
-    filesBucket.grantDelete(unauthenticated);
+    // filesBucket.grantRead(unauthenticated);
+    // filesBucket.grantPut(unauthenticated);
+    // filesBucket.grantDelete(unauthenticated);
+
+    const s3AccessPolicy = new iam.PolicyStatement({
+      actions: [
+        "s3:GetObject", // For read access
+        "s3:PutObject", // For put access
+        "s3:DeleteObject", // For delete access
+      ],
+      resources: [filesBucket.arnForObjects("*")],
+      effect: iam.Effect.ALLOW,
+    });
+
+    unauthenticated.addToPolicy(s3AccessPolicy);
 
     // Add policy to start Transcribe stream transcription
     unauthenticated.addToPolicy(
@@ -117,9 +125,7 @@ export class AwsSdkJsNotesAppStack extends Stack {
     );
 
     // Add policy to enable Amazon Polly text-to-speech
-    unauthenticated.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonPollyFullAccess")
-    );
+    unauthenticated.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonPollyFullAccess"));
 
     new cognito.CfnIdentityPoolRoleAttachment(this, "role-attachment", {
       identityPoolId: identityPool.ref,
